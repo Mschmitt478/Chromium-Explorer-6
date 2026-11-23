@@ -1,4 +1,4 @@
-#include "engine.hpp"
+#include "window.hpp"
 #include <QApplication>
 #include <QEventLoop>
 #include <QFileDialog>
@@ -17,11 +17,13 @@ void require(bool condition, const char *description)
         qFatal("%s", description);
 }
 
-void waitForLoad(QWebEngineView &view, const std::function<void()> &start)
+void waitForLoad(QWebEngineView &view, const std::function<void()> &start, bool expectedSuccess = true)
 {
     QEventLoop loop;
+    bool finished = false;
     bool success = false;
     const auto connection = QObject::connect(&view, &QWebEngineView::loadFinished, &loop, [&](bool ok) {
+        finished = true;
         success = ok;
         loop.quit();
     });
@@ -29,7 +31,7 @@ void waitForLoad(QWebEngineView &view, const std::function<void()> &start)
     start();
     loop.exec();
     QObject::disconnect(connection);
-    require(success, "Timed out or failed to load test document");
+    require(finished && success == expectedSuccess, "Unexpected result loading test document");
 }
 }
 
@@ -59,6 +61,20 @@ int main(int argc, char **argv)
                     connection->write("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n"
                                       "Content-Disposition: attachment; filename=fixture.txt\r\n"
                                       "Content-Length: 8\r\nConnection: close\r\n\r\nfixture!");
+                    connection->disconnectFromHost();
+                    return;
+                }
+                if (request.startsWith("GET /search ")) {
+                    connection->write("HTTP/1.1 302 Found\r\nLocation: /challenge\r\n"
+                                      "Content-Length: 0\r\nConnection: close\r\n\r\n");
+                    connection->disconnectFromHost();
+                    return;
+                }
+                if (request.startsWith("GET /challenge ")) {
+                    const QByteArray body = "<title>Verification required</title><h1>Complete verification</h1>";
+                    connection->write("HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html\r\n"
+                                      "Connection: close\r\nContent-Length: " +
+                                      QByteArray::number(body.size()) + "\r\n\r\n" + body);
                     connection->disconnectFromHost();
                     return;
                 }
@@ -106,6 +122,23 @@ int main(int argc, char **argv)
     downloadLoop.exec();
     require(!engine.downloads.isEmpty() && engine.downloads.constLast() &&
             engine.downloads.constLast()->state() == QWebEngineDownloadRequest::DownloadCompleted, "Download completes");
+    poll.stop();
     QFile saved(target);
     require(saved.open(QIODevice::ReadOnly) && saved.readAll() == "fixture!", "Download bytes match fixture");
+
+    Store store(":memory:");
+    Window window(engine, privateEngine, store);
+    window.show();
+    auto *browser = window.addPage();
+    waitForLoad(*browser, [&] { browser->load(QUrl(base + "/search")); }, false);
+    require(browser->title() == "Verification required", "Chromium received the HTTP 429 response body");
+    require(browser->isVisible(), "The site's verification page stays visible after HTTP 429");
+    require(engine.failure(browser).isEmpty(), "An HTTP response is distinct from a failed connection");
+
+    QTcpServer unavailable;
+    require(unavailable.listen(QHostAddress::LocalHost), "Reserve a port for the failed connection");
+    const QUrl refused(QString("http://127.0.0.1:%1/").arg(unavailable.serverPort()));
+    unavailable.close();
+    waitForLoad(*browser, [&] { browser->load(refused); }, false);
+    require(!browser->isVisible() && !engine.failure(browser).isEmpty(), "Connection failures still show the browser error");
 }

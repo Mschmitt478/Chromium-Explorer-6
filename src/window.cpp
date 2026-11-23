@@ -166,7 +166,9 @@ QWebEngineView *Window::addPage(const QUrl &url, bool background)
         QString state = "Done";
         if (info.status() == Load::LoadStoppedStatus)
             state = "Stopped";
-        if (info.status() == Load::LoadFailedStatus && !info.isDownload()) {
+        if (info.status() == Load::LoadFailedStatus && Engine::hasHttpResponse(info)) {
+            state = QString("HTTP %1").arg(info.errorCode());
+        } else if (info.status() == Load::LoadFailedStatus && !info.isDownload()) {
             state = "The page cannot be displayed";
             detail->setText(info.url().toDisplayString(QUrl::RemoveUserInfo) + "\n\n" + engine.failure(view));
             view->setProperty("failedUrl", info.url());

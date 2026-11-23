@@ -34,6 +34,11 @@ Engine::Engine(bool privateMode)
                      [this](auto *request) { download(request); });
 }
 
+bool Engine::hasHttpResponse(const QWebEngineLoadingInfo &info)
+{
+    return info.errorDomain() == QWebEngineLoadingInfo::HttpStatusCodeDomain && !info.isErrorPage();
+}
+
 QWebEngineView *Engine::createView(QWidget *parent)
 {
     auto *view = new QWebEngineView(session.get(), parent);
@@ -45,7 +50,7 @@ QWebEngineView *Engine::createView(QWidget *parent)
     QObject::connect(page, &QWebEnginePage::loadingChanged, view, [this, view](const QWebEngineLoadingInfo &info) {
         if (info.status() == QWebEngineLoadingInfo::LoadStartedStatus)
             failures.remove(view);
-        if (info.status() == QWebEngineLoadingInfo::LoadFailedStatus && !info.isDownload() && !failures.contains(view))
+        if (info.status() == QWebEngineLoadingInfo::LoadFailedStatus && !info.isDownload() && !hasHttpResponse(info) && !failures.contains(view))
             failures[view] = info.errorString();
     });
     QObject::connect(view, &QObject::destroyed, session.get(), [this, view] { failures.remove(view); });
