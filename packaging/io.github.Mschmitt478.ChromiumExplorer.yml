@@ -1,0 +1,36 @@
+id: io.github.Mschmitt478.ChromiumExplorer
+runtime: org.kde.Platform
+runtime-version: '6.11'
+sdk: org.kde.Sdk
+base: io.qt.qtwebengine.BaseApp
+base-version: '6.11'
+command: iexplore
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --socket=cups
+  - --device=dri
+  - --env=QTWEBENGINEPROCESS_PATH=/app/bin/QtWebEngineProcess
+  - --env=QTWEBENGINE_DICTIONARIES_PATH=/app/qtwebengine_dictionaries
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
+modules:
+  - name: internet-explorer-xp
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DBUILD_TESTING=OFF
+    sources:
+      - type: dir
+        path: ..
+        skip:
+          - .git
+          - build
+          - build-dev
+          - build-verified
+          - build-flatpak
+          - .flatpak-builder
+          - repo
+          - io.github.Mschmitt478.ChromiumExplorer.flatpak
