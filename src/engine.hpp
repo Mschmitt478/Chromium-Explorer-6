@@ -6,12 +6,18 @@
 #include <memory>
 
 class QWebEngineLoadingInfo;
+class QWebEngineExtensionManager;
+class QWebEngineExtensionInfo;
 
 class Engine {
 public:
     explicit Engine(bool privateMode);
     QWebEngineView *createView(QWidget *parent);
     QWebEngineProfile *profile() const { return session.get(); }
+    QWebEngineExtensionManager *extensions() const;
+#if QT_CONFIG(webengine_extensions)
+    void setExtensionEnabled(const QWebEngineExtensionInfo &extension, bool enabled);
+#endif
     static bool hasHttpResponse(const QWebEngineLoadingInfo &info);
     void download(QWebEngineDownloadRequest *request);
     QList<QPointer<QWebEngineDownloadRequest>> downloads;

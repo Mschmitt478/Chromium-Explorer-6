@@ -30,6 +30,8 @@ modules:
           - build
           - build-dev
           - build-verified
+          - build-extension-flatpak
+          - build-extension-flatpak-sdk
           - build-flatpak
           - .flatpak-builder
           - repo

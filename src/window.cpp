@@ -529,6 +529,7 @@ void Window::buildMenus()
         perform([this] { store.clearHistory(); populateExplorer(); updateAddressItems(); });
     })->setEnabled(!privateMode);
     tools->addAction("&Downloads", this, &Window::showDownloads);
+    tools->addAction("&Extensions…", this, &Window::showExtensions)->setEnabled(!privateMode && engine.extensions());
     tools->addAction("Developer &Tools", this, [this] {
         if (auto *page = current()) {
             auto *toolsView = engine.createView(this);

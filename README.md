@@ -26,6 +26,12 @@ sudo dnf install gcc-c++ cmake ninja-build qt6-qtbase-devel qt6-qtwebengine-deve
 
 For a development launch using XWayland, run `QT_QPA_PLATFORM=xcb ./scripts/run.sh` on a Plasma Wayland session.
 
+## Browser extensions
+
+Open **Tools → Extensions → Install Folder** and select a publisher-provided Manifest V3 extension folder containing `manifest.json`. If you received a ZIP, extract it first. Installed extensions start disabled. Select an extension to enable, disable, open its popup when available, or remove it. The normal profile remembers enabled extensions across restarts. Private windows use a separate profile without those extensions.
+
+Extension compatibility depends on the APIs provided by Qt WebEngine. Installation uses local files. Chrome Web Store one-click installation and automatic store updates are unavailable.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |

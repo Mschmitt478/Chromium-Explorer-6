@@ -62,6 +62,7 @@ private:
     void printPage(bool preview);
     void options();
     void showDownloads();
+    void showExtensions();
     void saveSession();
     void go(const QUrl &url);
     void zoom(double delta);
