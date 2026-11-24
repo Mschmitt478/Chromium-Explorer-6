@@ -26,6 +26,16 @@ int main(int argc, char **argv)
 
     require(interpretAddress("C++", {}).toEncoded().endsWith("q=C%2B%2B"), "Encode literal plus signs");
 
+    require(compactAddress(QUrl("https://example.org/search?q=a%26b#results")) ==
+            "example.org/search", "Compact address hides HTTPS query and fragment");
+    require(compactAddress(QUrl("http://localhost:8080/?a=1")) ==
+            "http://localhost:8080", "Compact address retains HTTP and port");
+    require(compactAddress(QUrl("file:///tmp/a.html")) ==
+            "file:///tmp/a.html", "Compact address retains file scheme");
+
+    require(compactAddress(QUrl("https://example.org/" + QString(80, 'a'))) ==
+            QStringLiteral("example.org/…"), "Compact address abbreviates a long path");
+
     QTemporaryDir folder;
     require(folder.isValid(), "Temporary data directory");
     const auto path = folder.filePath("browser.sqlite");

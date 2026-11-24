@@ -11,6 +11,7 @@ struct Entry {
     QString group;
 };
 
+QString compactAddress(const QUrl &url);
 bool supportedUrl(const QUrl &url);
 QUrl searchUrl(const QString &text, const QString &provider);
 QUrl interpretAddress(QString text, const QString &provider);

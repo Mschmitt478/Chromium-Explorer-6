@@ -16,6 +16,7 @@ class QTreeWidget;
 class Window final : public QMainWindow {
 public:
     Window(Engine &engine, Engine &privateEngine, Store &store, bool privateMode = false);
+    ~Window() override;
     QWebEngineView *addPage(const QUrl &url = {}, bool background = false);
     void start(const QUrl &url, bool mainWindow = true);
     void openWindow(const QUrl &url = {}, bool privateWindow = false);
@@ -27,6 +28,9 @@ private:
     const bool tabsEnabled;
     QTabWidget *tabs;
     QComboBox *address;
+    QUrl currentAddress;
+    bool addressEdited = false;
+    QMetaObject::Connection addressFocusConnection;
     QToolBar *navigation;
     QToolBar *addressBar;
     QDockWidget *explorer;
@@ -47,6 +51,8 @@ private:
     void buildMenus();
     void updateChrome();
     void updateAddressItems();
+    void updateAddressText(bool focused);
+    void submitAddress();
     void navigate(const QString &text);
     void home();
     void showExplorer(bool favorites);

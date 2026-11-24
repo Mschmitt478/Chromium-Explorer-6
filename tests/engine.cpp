@@ -1,4 +1,7 @@
 #include "window.hpp"
+#include <QAction>
+#include <QComboBox>
+#include <QLineEdit>
 #include <QApplication>
 #include <QEventLoop>
 #include <QFileDialog>
@@ -65,12 +68,12 @@ int main(int argc, char **argv)
                     return;
                 }
                 if (request.startsWith("GET /search ")) {
-                    connection->write("HTTP/1.1 302 Found\r\nLocation: /challenge\r\n"
+                    connection->write("HTTP/1.1 302 Found\r\nLocation: /challenge?ticket=synthetic%26encoded#verify\r\n"
                                       "Content-Length: 0\r\nConnection: close\r\n\r\n");
                     connection->disconnectFromHost();
                     return;
                 }
-                if (request.startsWith("GET /challenge ")) {
+                if (request.startsWith("GET /challenge?ticket=synthetic%26encoded ")) {
                     const QByteArray body = "<title>Verification required</title><h1>Complete verification</h1>";
                     connection->write("HTTP/1.1 429 Too Many Requests\r\nContent-Type: text/html\r\n"
                                       "Connection: close\r\nContent-Length: " +
@@ -134,6 +137,25 @@ int main(int argc, char **argv)
     require(browser->title() == "Verification required", "Chromium received the HTTP 429 response body");
     require(browser->isVisible(), "The site's verification page stays visible after HTTP 429");
     require(engine.failure(browser).isEmpty(), "An HTTP response is distinct from a failed connection");
+
+    auto *address = window.findChild<QComboBox *>("addressBar");
+    require(address, "Browser address control exists");
+    QApplication::setActiveWindow(&window);
+    browser->setFocus();
+    require(address->currentText() == base + "/challenge", "Unfocused address hides query and fragment");
+    address->lineEdit()->setFocus();
+    require(address->currentText() == base + "/challenge?ticket=synthetic%26encoded#verify",
+            "Focused address preserves the full URL, including encoded query and fragment");
+    browser->setFocus();
+    require(address->currentText() == base + "/challenge", "Unfocused address is compact again");
+
+    QAction *go = nullptr;
+    for (auto *action : window.findChildren<QAction *>())
+        if (action->text() == "Go")
+            go = action;
+    require(go, "Go action exists");
+    waitForLoad(*browser, [&] { go->trigger(); }, false);
+    require(browser->title() == "Verification required", "Go from compact mode keeps the original query");
 
     QTcpServer unavailable;
     require(unavailable.listen(QHostAddress::LocalHost), "Reserve a port for the failed connection");

@@ -49,7 +49,11 @@ Window::Window(Engine &profile, Engine &privateProfile, Store &data, bool offRec
     buildChrome();
     buildMenus();
     createFindBar();
-    connect(tabs, &QTabWidget::currentChanged, this, &Window::updateChrome);
+    connect(tabs, &QTabWidget::currentChanged, this, [this] {
+        addressEdited = false;
+        updateChrome();
+        updateAddressText(address->hasFocus());
+    });
     connect(tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
         if (tabs->count() == 1) {
             close();
@@ -62,6 +66,11 @@ Window::Window(Engine &profile, Engine &privateProfile, Store &data, bool offRec
     navigation->setVisible(QSettings().value("showNavigation", true).toBool());
     addressBar->setVisible(QSettings().value("showAddress", true).toBool());
     statusBar()->setVisible(QSettings().value("showStatus", true).toBool());
+}
+
+Window::~Window()
+{
+    disconnect(addressFocusConnection);
 }
 
 void Window::start(const QUrl &url, bool mainWindow)
@@ -251,6 +260,7 @@ void Window::buildChrome()
     siteIcon->setPixmap(toolbarIcon("web").pixmap(16));
     addressBar->addWidget(siteIcon);
     address = new QComboBox(addressBar);
+    address->setObjectName("addressBar");
     address->setEditable(true);
     address->setInsertPolicy(QComboBox::NoInsert);
     address->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
@@ -259,9 +269,17 @@ void Window::buildChrome()
     address->lineEdit()->setAcceptDrops(true);
     label->setBuddy(address->lineEdit());
     addressBar->addWidget(address);
-    addressBar->addAction(toolbarIcon("forward"), "Go", this, [this] { navigate(address->currentText()); });
-    connect(address->lineEdit(), &QLineEdit::returnPressed, this, [this] { navigate(address->currentText()); });
+    addressBar->addAction(toolbarIcon("forward"), "Go", this, &Window::submitAddress);
+    connect(address->lineEdit(), &QLineEdit::returnPressed, this, &Window::submitAddress);
+    connect(address->lineEdit(), &QLineEdit::textEdited, this, [this] { addressEdited = true; });
     connect(address, &QComboBox::textActivated, this, [this](const QString &text) { navigate(text); });
+    addressFocusConnection = connect(qApp, &QApplication::focusChanged, this, [this](QWidget *old, QWidget *now) {
+        const auto isAddress = [this](QWidget *widget) {
+            return widget == address || widget == address->lineEdit();
+        };
+        if (isAddress(old) != isAddress(now))
+            updateAddressText(isAddress(now));
+    });
     for (const auto &key : {"Alt+D", "Ctrl+L"}) {
         auto *shortcut = new QShortcut(QKeySequence(key), this);
         connect(shortcut, &QShortcut::activated, this, [this] {
@@ -574,8 +592,10 @@ void Window::updateChrome()
     const QUrl url = view->property("failedUrl").isValid() ? view->property("failedUrl").toUrl() : view->url();
     const auto title = view->title().isEmpty() ? "Blank Page" : view->title();
     setWindowTitle(title + (privateMode ? " - Internet Explorer XP (Private)" : " - Internet Explorer XP"));
-    if (!address->lineEdit()->hasFocus())
-        address->setEditText(url.toDisplayString(QUrl::PrettyDecoded));
+    if (url != currentAddress) {
+        currentAddress = url;
+        updateAddressText(address->lineEdit()->hasFocus() || address->hasFocus());
+    }
     const auto icon = view->icon().isNull() ? toolbarIcon("web") : view->icon();
     addressBar->findChild<QLabel *>("siteIcon")->setPixmap(icon.pixmap(16));
     const int percent = view->property("progress").isValid() ? view->property("progress").toInt() : -1;
@@ -623,9 +643,32 @@ void Window::updateAddressItems()
         address->clear();
         address->addItems(items);
         address->setEditText(previous);
+        if (!addressEdited && !address->lineEdit()->hasFocus())
+            address->lineEdit()->setCursorPosition(0);
         address->completer()->setCaseSensitivity(Qt::CaseInsensitive);
         address->completer()->setFilterMode(Qt::MatchContains);
     });
+}
+
+void Window::updateAddressText(bool focused)
+{
+    if (addressEdited)
+        return;
+    const auto text = focused ? currentAddress.toString(QUrl::FullyEncoded | QUrl::RemoveUserInfo) :
+        compactAddress(currentAddress);
+    if (address->currentText() == text)
+        return;
+    address->setEditText(text);
+    address->lineEdit()->setCursorPosition(0);
+}
+
+void Window::submitAddress()
+{
+    const auto text = address->currentText();
+    if (!addressEdited && supportedUrl(currentAddress) && text == compactAddress(currentAddress))
+        go(currentAddress);
+    else
+        navigate(text);
 }
 
 void Window::navigate(const QString &text)
@@ -640,8 +683,13 @@ void Window::navigate(const QString &text)
 void Window::go(const QUrl &url)
 {
     if (auto *view = current()) {
+        addressEdited = false;
         view->setFocus();
-        view->load(url);
+        updateAddressText(address->lineEdit()->hasFocus() || address->hasFocus());
+        if (url == view->url() && !view->property("failedUrl").isValid())
+            view->reload();
+        else
+            view->load(url);
     }
 }
 

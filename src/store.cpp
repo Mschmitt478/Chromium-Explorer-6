@@ -17,6 +17,22 @@ bool supportedUrl(const QUrl &url)
     return (url.scheme() == "https" || url.scheme() == "http") && !url.host().isEmpty();
 }
 
+QString compactAddress(const QUrl &url)
+{
+    if (url.scheme() != "http" && url.scheme() != "https")
+        return url.toDisplayString(QUrl::RemoveUserInfo);
+    auto options = QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment;
+    if (url.scheme() == "https")
+        options |= QUrl::RemoveScheme;
+    const bool longPath = url.path(QUrl::FullyEncoded).size() > 48;
+    if (longPath || url.path() == "/")
+        options |= QUrl::RemovePath;
+    auto result = url.toDisplayString(options);
+    if (url.scheme() == "https" && result.startsWith("//"))
+        result.remove(0, 2);
+    return longPath ? result + QStringLiteral("/…") : result;
+}
+
 QUrl searchUrl(const QString &text, const QString &provider)
 {
     QUrl url(provider == "Google" ? "https://www.google.com/search" : "https://duckduckgo.com/");
