@@ -53,4 +53,4 @@ Extension compatibility depends on the APIs provided by Qt WebEngine. Installati
 
 ![Internet Explorer XP on KDE Wayland](docs/screenshots/wayland.png)
 
-[Architecture and limitations](docs/architecture.md) · [Validation](docs/validation.md)
+[Architecture and limitations](docs/architecture.md) · [Validation](docs/validation.md) · [Desktop Chromium capability audit](docs/chromium-parity.md)
